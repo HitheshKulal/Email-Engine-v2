@@ -1,0 +1,41 @@
+version: "3.8"
+services:
+
+  # processor:
+  #   image: "processor:1"
+  #   container_name: "processor"
+  #   restart: always
+  #   environment:
+  #     - NODE_ENV=dev
+  #   network_mode: host
+  #   depends_on: 
+  #     - elasticsearch
+  #     - kibana
+  #   build: 
+  #     context: ./
+  #     dockerfile: dockerfile
+
+  elasticsearch:
+    image: "docker.elastic.co/elasticsearch/elasticsearch:7.17.0"
+    restart: always
+    container_name: "dev.elasticsearch"
+    ports:
+      - 9200:9200
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.2
+    container_name: "dev.kibana"
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+
+volumes:
+  elasticsearch-data:
