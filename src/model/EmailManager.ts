@@ -111,7 +111,7 @@ export class EmailManager implements EmailManagerInterface {
 
     async processAndIndexEmails(accessToken: string, userId: string): Promise<void> {
         try {
-            let nextLink: string | undefined = "https://graph.microsoft.com/v1.0/me/messages?$top=1"; // Initial URL
+            let nextLink: string | undefined = "https://graph.microsoft.com/v1.0/me/messages"; // Initial URL
             while (nextLink) {
                 const graphData: any = await fetch(nextLink, accessToken);
                 const emails = await this.mapGraphDataToEmail(graphData, userId);

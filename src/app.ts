@@ -43,11 +43,12 @@ app.get("/", (req: Request, res: Response) => {
     res.render("home")
 });
 
+const emailManager = EmailManager.getInstance();
+emailManager.initializeIndex()
 // Start the server
-app.listen(port, async () => {
+app.listen(port, () => {
     console.log(`Listening on port ${port}.....`);
-    const emailManager = EmailManager.getInstance();
-    await emailManager.initializeIndex();
+    
 });
 
 export default app;
