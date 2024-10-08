@@ -25,6 +25,8 @@ The application requires an Elasticsearch service that runs through Docker. Use 
 ```bash
 docker-compose up -d
 
+tsc
+
 npm install
 
 npm start
