@@ -89,25 +89,8 @@ Once logged in and signed in with Outlook, you can view your email inbox:
 
 We are continuously working to enhance the Email Engine v2. Below are some of the pending changes and improvements that are planned:
 
-### 1. Rate Limiting for Outlook APIs
 
-**Description**: We are implementing rate limiting to manage the number of API requests sent to Outlook. This is crucial to avoid hitting the API rate limits and to ensure smooth operation.
-
-**Details**:
-- Implement mechanisms to monitor and limit the number of requests made to the Outlook API.
-- Introduce retry logic or request throttling when rate limits are approached or exceeded.
-- Update documentation with guidelines for managing API usage.
-
-### 2. Track Changes Using Microsoft Graph Delta Query
-
-**Description**: To efficiently track changes in the user's mailbox, we will use the Microsoft Graph Delta Query API. This will allow the application to detect changes such as new messages or updates to existing messages.
-
-**Details**:
-- Integrate with the following endpoint: [Microsoft Graph Delta Query](https://graph.microsoft.com/v1.0/me/mailFolders/Inbox/messages/delta).
-- Implement functionality to query for changes and update the application state accordingly.
-- Ensure that changes are handled efficiently to minimize impact on performance and user experience.
-
-### 3. Code Optimizations
+###1. Code Optimizations
 
 **Description**: We are working on optimizing the codebase to improve performance, readability, and maintainability.
 
