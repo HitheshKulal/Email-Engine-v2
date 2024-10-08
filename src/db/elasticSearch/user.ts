@@ -4,7 +4,7 @@ import { User } from "../../interfaces/user.js";
 import client from "../elasticSearch/connection.js";
 import { asyncWrapper } from '../../utility/async-wrapper.js';
 import { AuthenticatedRequest } from '../../middlewares/authentication.js';
-import { EmailManagerInterface } from "../../interfaces/EmailManager.js";
+import { EmailManagerInterface } from "../../interfaces/EmailManagerInterface.js";
 
 // Define types for user
 

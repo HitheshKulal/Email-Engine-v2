@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/inbox.css">
+    <link rel="stylesheet" href="/css/main.css">
+
+    <title>Inbox</title>
+</head>
+
+<body>
+    <header class="main-header">
+        <nav class="main-header__nav">
+            <ul class="main-header__item-list">
+                <li class="main-header__item"><a href="/">Home</a></li>
+                <li class="main-header__item"><a href="/user/logout">Log out</a></li>
+
+            </ul>
+        </nav>
+
+    </header>
+    <div class="inbox-container">
+        <h1 class="inbox-title">Inbox</h1>
+        {{#if hasEmails}}
+        <div class="email-list">
+            {{#each emails}}
+            <div class="email-card">
+                <div class="email-subject">
+                    <h2>Subject: {{this.subject}}</h2>
+                </div>
+                <div class="email-details">
+                    <p>Sender: {{this.senderEmailAddress}}</p>
+                    <p>Sender Name: {{this.senderName}}</p>
+                    <p>Received: {{this.receivedDateTime}}</p>
+                    <p>Created: {{this.createdDateTime}}</p>
+                    <p>Last Modified: {{this.lastModifiedDateTime}}</p>
+                    <p>Importance: {{this.importance}}</p>
+                </div>
+                <div class="email-attachments">
+                    {{#if this.hasAttachments}}
+                    <img src="https://cdn0.iconfinder.com/data/icons/typicons-2/24/attachment-512.png" alt="Attachment"
+                        class="attachment-icon" />
+                    {{/if}}
+                    <div class="email-status">
+                        {{#if this.isRead}}
+                        <span class="status-icon read">✔️ Read</span>
+                        {{else}}
+                        <span class="status-icon unread">✖️ Unread</span>
+                        {{/if}}
+                        {{#if this.isDraft}}
+                        <span class="status-icon draft">📝 Draft</span>
+                        {{/if}}
+                    </div>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+        {{else}}
+        <h2>No Products Found!</h2>
+        {{/if}}
+    </div>
+    <div class="pagination">
+        {{#if hasPreviousPage}}
+        <a href="?page={{previousPage}}">{{previousPage}}</a>
+        {{/if}}
+        <a href="?page={{currentPage}}">{{currentPage}}</a>
+        {{#if hasNextPage}}
+        <a href="?page={{nextPage}}">{{nextPage}}</a>
+        {{/if}}
+    </div>
+
+</body>
+
+</html>

@@ -32,4 +32,6 @@ export interface User {
 
     outlookRefreshTocken: String;
 
+    outlookMailCount?: number;
+
 }

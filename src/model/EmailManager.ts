@@ -2,118 +2,115 @@ import { v4 as uuidv4 } from 'uuid';
 import { User } from "../interfaces/user.js";
 import { Email } from "../interfaces/email.js";
 import client from "../db/elasticSearch/connection.js";
-import { EmailManagerInterface } from "../interfaces/EmailManager.js";
+import { EmailManagerInterface } from "../interfaces/EmailManagerInterface.js";
 import { hashPassword } from "../utility/hashPassword.js";
 import fetch from "../utility/fetch.js";
 import { any } from "zod";
+import { ElasticSearchManager } from './ElasticSearchManager.js';
+import { UserManager } from './UserManager.js';
+import { RateLimiter } from './RateLimiter.js';
 
 
 
 export class EmailManager implements EmailManagerInterface {
-    private static instance: EmailManager
     private static outlookMailURL = process.env.OUTLOOK_MAIL_URL;
+    private static trackChangesURL = process.env.OUTLOOK_MAIL_TRACK_CHANGES_URL;
     private static mailCount = 0;
+    private esModel: ElasticSearchManager;
+    private rateLimiter: RateLimiter;
+    private userModel: UserManager;
+    private emailIndex: string;
+
+    private isSyncing: boolean;
+    private syncCount: number;
 
 
-    private constructor() {
-        // this.initializeIndex();
+
+    constructor() {
+        this.esModel = new ElasticSearchManager(); // Instantiate the Elasticsearch model
+        this.userModel = new UserManager();
+        this.rateLimiter = new RateLimiter(10000, 10);
+        this.emailIndex = 'email';
+        this.isSyncing = false;
+        this.syncCount = 0;
     }
 
-    static getInstance(): EmailManager {
-        if (this.instance) {
-            return this.instance;
+    async checkSyncCount(): Promise<boolean> {
+        if (this.syncCount === 4) {
+            return this.isSyncing = true;
+        } else {
+            this.syncCount += 1;
+            return false;
         }
-        this.instance = new EmailManager();
-        return this.instance;
+    }
+
+    async incrementSyncCount(): Promise<void> {
+        this.syncCount++;
+    }
+
+    async decrementSyncCount(): Promise<void> {
+        this.syncCount--;
+    }
+
+    async updateIsSyncing(): Promise<void> {
+        if (this.syncCount > 4) {
+            this.isSyncing = false;
+        } else {
+            this.isSyncing = true;
+        }
     }
 
     async initializeIndex(): Promise<void> {
         try {
-            await client.indices.create({ index: 'users' });
-            await client.indices.create({ index: 'emails' });
-            console.log('Indices initialized successfully.');
+            this.esModel.createIndex(this.emailIndex);
         } catch (error) {
             console.error('Error initializing indices');
-            // throw error; // Re-throw the error to be handled by the wrapper
         }
     }
 
-    async indexUser(user: User): Promise<void> {
-        const id = uuidv4();
-        console.log(id)
-        console.log(user?.name)
-        console.log(user?.password)
-        user.password = await hashPassword(user.password)
-        const response = await client.index({
-            index: "users",
-            id: id,
-            body: {
-                email: user?.email,
-                password: user?.password,
-            },
-            refresh: true // Ensure the document is searchable immediately
-        })
-        console.log('Document indexed successfully:', response);
-
-    }
-
-    async searchUserIndexByEmail(email: String): Promise<any[]> {
-        const response = await client.search({
-            index: 'users', // Ensure the index name is correct
-            body: {
-                query: {
-                    match: { email: email } // Match query for the 'name' field
+    async indexEmails(emails: Email[]): Promise<void> {
+        for (const email of emails) {
+            try {
+                const id = email.id;
+                const emailResponse = await this.searchEmailById(id);
+                if (emailResponse.length > 0) {
+                    this.esModel.indexDocument(this.emailIndex, id, email);
+                } else {
+                    this.esModel.indexDocument(this.emailIndex, id, email);
+                    // await this.updateMailsCount(email?.userId);
                 }
+            } catch (error) {
+                console.error('Error indexing document: ', error);
             }
-        });
-        return response.body.hits.hits;
-    }
-
-    async searchUserIndexById(id: String): Promise<any[]> {
-        const response = await client.search({
-            index: 'users', // Ensure the index name is correct
-            body: {
-                query: {
-                    match: { _id: id } // Match query for the 'name' field
-                }
-            }
-        });
-        return response.body.hits.hits;
-    }
-
-    async searchUserIndexByName(email: String): Promise<[]> {
-        const response = await client.search({
-            index: 'users',
-            body: {
-                query: {
-                    match: { name: email }
-                }
-            }
-        }, {
-            ignore: [404],
-            maxRetries: 3
-        });
-
-        // Extract the hits (search results) from the response
-        const hits = response.body.hits.hits.map((hit: any) => hit._source);
-
-        return hits;
-    }
-
-    async syncOutlookMails(userId: string): Promise<void> {
-        const user = await this.searchUserIndexById(userId);
-        console.log(user)
-        console.log(JSON.stringify(user[0]._source.outlookAccessToken))
-        if (!user[0]._source.outlookAccessTocken) {
-            await this.processAndIndexEmails(user[0]._source.outlookAccessToken, user[0]._id)
         }
     }
+    async syncOutlookMails(userId: string, isSync: boolean): Promise<void> {
+        if (!this.isSyncing) {
+            const user = await this.userModel.searchUserIndexById(userId);
+            console.log("123 " + process.env.OUTLOOK_MAIL_URL)
+            let nextLink: string | undefined = isSync ? process.env.OUTLOOK_MAIL_TRACK_CHANGES_URL : process.env.OUTLOOK_MAIL_URL;
+            await this.incrementSyncCount();
+            await this.updateIsSyncing();
+            if (!user[0]._source.outlookAccessTocken) {
+                await this.processAndIndexEmails(user[0]._source.outlookAccessToken, user[0]._id, nextLink)
+            }
+            await this.decrementSyncCount();
+            await this.updateIsSyncing();
+            console.log("sync completed")
+        } else {
+            console.log("sync in progress, try later")
 
-    async processAndIndexEmails(accessToken: string, userId: string): Promise<void> {
+        }
+
+    }
+
+    async processAndIndexEmails(accessToken: string, userId: string, nextLink: string | undefined): Promise<void> {
         try {
-            let nextLink: string | undefined = "https://graph.microsoft.com/v1.0/me/messages"; // Initial URL
-            while (nextLink) {
+            // Initial URL
+            console.log(nextLink + " link  " + this.rateLimiter.checkLimit())
+            while (nextLink && this.rateLimiter.checkLimit()) {
                 const graphData: any = await fetch(nextLink, accessToken);
+                console.log("graphData " + JSON.stringify(graphData));
                 const emails = await this.mapGraphDataToEmail(graphData, userId);
 
                 // Index the emails into Elasticsearch
@@ -130,74 +127,61 @@ export class EmailManager implements EmailManagerInterface {
         }
     }
 
-    /**
- * Maps the Graph API email data to the Email interface.
- * @param graphData - The raw data from the Microsoft Graph API.
- * @returns The mapped email data.
- */
+
     async mapGraphDataToEmail(graphData: any, userId: string): Promise<Email[]> {
         return graphData.value.map((item: any) => ({
             id: item.id,
+            senderEmailAddress: item?.sender?.emailAddress?.address,
+            senderName: item?.sender?.emailAddress?.name,
             createdDateTime: item.createdDateTime,
             lastModifiedDateTime: item.lastModifiedDateTime,
-            subject: item.subject || '', // Default to empty string if subject is undefined
+            subject: item.subject || '',
             hasAttachments: item.hasAttachments,
             importance: item.importance,
             isRead: item.isRead,
             isDraft: item.isDraft,
             receivedDateTime: item.receivedDateTime,
-            flag: item.flag?.flagStatus || 'notFlagged', // Default to 'notFlagged' if flagStatus is undefined
-            userId: userId // Provide userId if necessary or extract from context
+            flag: item.flag?.flagStatus || 'notFlagged',
+            userId: userId
         }));
     }
 
-    /**
-     * Indexes a batch of Email documents into Elasticsearch.
-     * @param emails - The array of Email objects to be indexed.
-     */
-    async indexEmails(emails: Email[]): Promise<void> {
-        for (const email of emails) {
-            try {
-                const id = email.id; // Use email.id as the document ID
-                const emailResponse = await this.searchEmailById(id);
-                if (emailResponse.length < 1) {
-                    const response = await client.index({
-                        index: 'emails', // Name of the index
-                        id: id,
-                        body: email,
-                        refresh: true // Ensure the document is searchable immediately
-                    });
-                    console.log('Document indexed successfully:', response);
-                }
-            } catch (error) {
-                console.error('Error indexing document:', error);
-            }
+    async updateMailsCount(userId: string): Promise<void> {
+        try {
+            this.userModel.updateMailsCount(userId);
+        } catch (error) {
+            console.error('Error incrementing mail count:', error);
         }
-        console.log("index successfull")
     }
 
+
     async searchEmailById(id: String): Promise<any[]> {
-        const response = await client.search({
-            index: 'emails', // Ensure the index name is correct
-            body: {
-                query: {
-                    match: { _id: id } // Match query for the 'name' field
-                }
+        const body = {
+            query: {
+                match: { _id: id }
             }
-        });
-        return response.body.hits.hits;
+        };
+        return this.esModel.search(this.emailIndex, body)
     }
 
     async searchEmailByUserId(userID: String): Promise<any[]> {
-        const response = await client.search({
-            index: 'emails', // Ensure the index name is correct
-            body: {
-                query: {
-                    match: { userId: userID } // Match query for the 'name' field
-                }
+        const body = {
+            query: {
+                match: { userId: userID }
             }
-        });
-        return response.body.hits.hits;
+        };
+        return this.esModel.search(this.emailIndex, body)
+    }
+
+    async searchEmailByUserIdPagination(userID: String, currentCount: Number, pageSize: Number): Promise<any[]> {
+        const body = {
+            from: currentCount,
+            size: pageSize,
+            query: {
+                match: { userId: userID }
+            }
+        }
+        return this.esModel.search(this.emailIndex, body)
     }
 
     async returnSyncProgress(userId: string): Promise<string> {
@@ -205,45 +189,5 @@ export class EmailManager implements EmailManagerInterface {
         return `${EmailManager.mailCount}/${emailCount.length}`;
     }
 
-    /**
-     * Validates a user against a predefined schema.
-     * @param user - The user to be validated.
-     * @returns A promise that resolves with the validated user if the validation is successful.
-     */
-    async validateUser(user: User): Promise<User> {
-        // const validatedUser = userSchema.parse(user);
-        // return validatedUser;
-        return user;
-    }
-
-    async addAcessAndRefreshToken(id: string, accessToken: string, refreshToken: string): Promise<void> {
-        const response = await client.update({
-            index: 'users',
-            id: id,
-            body: {
-                doc: {
-                    accessToken: accessToken,
-                    refreshToken: refreshToken
-                },
-                doc_as_upsert: true
-
-
-            }
-        });
-    }
-
-    async addOutlookAcessAndRefreshToken(id: string, outlookAccessToken: string, outlookRefreshToken: string): Promise<void> {
-        const response = await client.update({
-            index: 'users',
-            id: id,
-            body: {
-                doc: {
-                    outlookAccessToken: outlookAccessToken,
-                    outlookRefreshToken: outlookRefreshToken
-                },
-                doc_as_upsert: true
-            }
-        });
-    }
 
 }

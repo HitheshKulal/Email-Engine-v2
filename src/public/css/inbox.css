@@ -1,0 +1,117 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+}
+
+.inbox-container {
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.inbox-title {
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.email-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.email-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: background 0.3s;
+    cursor: pointer;
+}
+
+.email-card:hover {
+    background: #f9f9f9;
+}
+
+.email-subject h2 {
+    font-size: 1.1em;
+    margin: 0;
+    color: #007bff;
+}
+
+.email-details {
+    margin-top: 10px;
+    color: #666;
+}
+
+.email-details p {
+    margin: 5px 0;
+}
+
+.email-attachments {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.attachment-icon {
+    width: 20px; /* Adjust size as necessary */
+    height: auto;
+    margin-right: 10px;
+}
+
+.email-status {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between status icons */
+}
+
+.status-icon {
+    font-size: 0.9em;
+}
+
+.status-icon.read {
+    color: green;
+}
+
+.status-icon.unread {
+    color: red;
+}
+
+.status-icon.draft {
+    color: orange;
+}
+ .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.pagination a {
+    text-decoration: none;
+    color: #007bff; /* Link color */
+    padding: 10px 15px;
+    margin: 0 5px;
+    border: 1px solid #007bff; /* Border color */
+    border-radius: 5px; /* Rounded corners */
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.pagination a:hover {
+    background-color: #007bff; /* Background on hover */
+    color: white; /* Text color on hover */
+}
+
+.pagination a:disabled {
+    color: #ccc; /* Disabled link color */
+    border: 1px solid #ccc; /* Disabled border */
+    pointer-events: none; /* Prevent clicks */
+}

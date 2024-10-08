@@ -4,6 +4,8 @@ import { createCustomError } from "../errors/custom-error.js";
 import { EmailManager } from "../model/EmailManager.js";
 import { comparePassword } from "../utility/comparePassword.js";
 import { generateAccessTokenAndRefreshToken } from "../utility/jwtGenerator.js";
+import { UserManager } from "../model/UserManager.js";
+import { escape } from "querystring";
 
 
 export const signupUser = asyncWrapper(
@@ -12,19 +14,16 @@ export const signupUser = asyncWrapper(
         res: Response,
         next: NextFunction
     ): Promise<void> => {
-        const emailManager = EmailManager.getInstance();
+        const userManger = new UserManager();
         console.log(JSON.stringify(req.body))
-        const isUserExist = await emailManager.searchUserIndexByEmail(req.body.email)
-        console.log("isUserExist" + JSON.stringify(isUserExist))
+        const isUserExist = await userManger.searchUserIndexByEmail(req.body.email)
         if (isUserExist.length > 0) {
-            throw createCustomError("User already exists", 409);
+            return res.status(409).render('404', { pageTitle: "User already exists" });
         }
-        console.log("data " + JSON.stringify(req.body))
-        const validatedUser = await emailManager.validateUser(req.body);
-        console.log("validatedUser " + JSON.stringify(validatedUser))
-        const newUser = await emailManager.indexUser(validatedUser);
-        res.status(201).json(newUser)
-        console.log("sign up ")
+        const validatedUser = await userManger.validateUser(req.body);
+        const newUser = await userManger.indexUser(validatedUser);
+        res.status(303)
+            .render("login.hbs", { pageTitile: "Log in" })
     }
 )
 
@@ -35,18 +34,19 @@ export const loginUser = asyncWrapper(
         res: Response,
         next: NextFunction
     ): Promise<void> => {
-        const emailManager = EmailManager.getInstance();
+        const userManger = new UserManager();
+        const emailManager = new EmailManager();
         const { email, password } = req.body;
-        const user = await emailManager.searchUserIndexByEmail(email);
+        const user = await userManger.searchUserIndexByEmail(email);
         console.log(user)
         if (user.length === 0) {
-            throw createCustomError("Invalid Credentials", 401);
+            return res.status(404).render('404', { pageTitle: "User does not exist" });
         }
         const id = user[0]._id;
         const hashedPassword = user[0]._source.password;
         const isPasswordCorrect = await comparePassword(password, hashedPassword);
         if (!isPasswordCorrect) {
-            throw createCustomError("Invalid Credentials", 401);
+            return res.status(401).render('404', { pageTitle: "Invalid Credentials" });
         }
         const { accessToken, refreshToken } =
             await generateAccessTokenAndRefreshToken(id);
@@ -55,36 +55,29 @@ export const loginUser = asyncWrapper(
             secure: true,
             maxAge: 60 * 60 * 24 * 30 * 1000,
         };
-        const loggedInUser = {
-            email
-        };
 
 
-        res
-            .status(200)
+
+        res.status(303)
             .cookie("accessToken", accessToken, options)
             .cookie("refreshToken", refreshToken, options)
-            .json({ loggedInUser, accessToken, refreshToken });
-        // res.send("login sucessfull <a href=\"/\">Home</a>")
+            .render("home.hbs")
     }
 )
 
 
 export const logoutUser = asyncWrapper(
-    async (
-        req: Request,
-        res: Response,
-        next: NextFunction
-    ): Promise<void> => {
-        console.log("log out")
-        const user = {
-            id: "1230"
-        }
-        if (true) {
-            res.status(201).json(user);
-        } else {
-            throw createCustomError(`Id: ${user.id} already exists`, 400);
-        }
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        req.session.destroy(err => {
+            if (err) {
+                return next(err);
+            }
+            res
+                .status(303)
+                .clearCookie("accessToken")
+                .clearCookie("refreshToken")
+                .redirect('/');
+        });
     }
-)
+);
 

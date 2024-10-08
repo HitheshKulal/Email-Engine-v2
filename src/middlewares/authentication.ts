@@ -16,7 +16,7 @@ const authenticateUser = asyncWrapper(
             req.cookies?.accessToken ||
             req.header("Authorization")?.replace("Bearer ", "");
         if (!token) {
-            throw new CustomAPIError("Unauthorized request", 401);
+            return res.status(401).render('404', { pageTitle: 'Unauthorized request' });
         }
         try {
             const jwtSecret = process.env.JWT_ACCESS_SECRET as Secret || "test";
@@ -25,7 +25,7 @@ const authenticateUser = asyncWrapper(
             console.log(JSON.stringify(req.user))
             next();
         } catch (error) {
-            throw new CustomAPIError("Unauthorized request", 401);
+            return res.status(401).render('404', { pageTitle: 'Unauthorized request' });
         }
     },
 );

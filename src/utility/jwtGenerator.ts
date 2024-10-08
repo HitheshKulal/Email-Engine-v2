@@ -1,5 +1,6 @@
 import jwt, { type Secret } from "jsonwebtoken";
 import { EmailManager } from "../model/EmailManager";
+import { UserManager } from "../model/UserManager";
 // import { UserAuthenticationManager } from "../model/authenticationModel.js";
 
 /**
@@ -39,8 +40,7 @@ export const generateAccessTokenAndRefreshToken = async (
 }> => {
     const accessToken = accessJWTGenerator(id);
     const refreshToken = refreshJWTGenerator(id);
-    const emailManager = EmailManager.getInstance();
-    // await emailManager.addRefreshToken(id, refreshToken);
-    await emailManager.addAcessAndRefreshToken(id, accessToken, refreshToken)
+    const userManger = new UserManager()
+    await userManger.addAcessAndRefreshToken(id, accessToken, refreshToken)
     return { accessToken, refreshToken };
 };

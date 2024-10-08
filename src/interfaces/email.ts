@@ -60,4 +60,14 @@ export interface Email {
      * Unique identifier for the user associated with the Email.
      */
     userId: string;
+
+    /**
+     * The email address of the sender.
+     */
+    senderEmailAddress: string;
+
+    /**
+     * The name of the sender.
+     */
+    senderName: string;
 }

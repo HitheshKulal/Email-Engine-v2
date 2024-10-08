@@ -1,7 +1,8 @@
 import msal from "@azure/msal-node";
 import axios from "axios";
 import { msalConfig } from "../config/authConfig.js";
-import { EmailManager } from "./EmailManager.js";
+import { EmailManager, EmailManager } from "./EmailManager.js";
+import { UserManager } from "./UserManager.js";
 
 
 console.log(msalConfig)
@@ -83,6 +84,8 @@ class AuthProvider {
         return async (req, res, next) => {
             try {
                 const msalInstance = this.getMsalInstance(this.msalConfig);
+                const authCode = req.body.code; // Extract the auth code from your request
+
 
                 /**
                  * If a token cache exists in the session, deserialize it and set it as the 
@@ -98,6 +101,11 @@ class AuthProvider {
                     scopes: options.scopes || [],
                 });
 
+                // const tokenResponse = await msalInstance.acquireTokenByCode({
+                //     scopes: ['User.Read', 'Mail.Read', 'offline_access', 'openid', 'profile'],
+                //     code: authCode,
+                //     redirectUri: options.redirectUri,
+                // });
                 /**
                  * On successful token acquisition, write the updated token 
                  * cache back to the session. For more, see: 
@@ -105,11 +113,11 @@ class AuthProvider {
                  */
                 req.session.tokenCache = msalInstance.getTokenCache().serialize();
                 req.session.accessToken = tokenResponse.accessToken;
-                console.log("access token for id " + JSON.stringify(req?.user) + " " + tokenResponse.accessToken)
                 req.session.idToken = tokenResponse.idToken;
                 req.session.account = tokenResponse.account;
-                const emailManager = EmailManager.getInstance();
-                await emailManager.addOutlookAcessAndRefreshToken(req?.user?.id, tokenResponse.accessToken, "")
+                const userManager = new UserManager();
+                const emailManager = new EmailManager();
+                await userManager.addOutlookAcessAndRefreshToken(req?.user?.id, tokenResponse.accessToken, "")
                 await emailManager.syncOutlookMails(req?.user?.id)
                 res.redirect(options.successRedirect);
             } catch (error) {
@@ -146,6 +154,7 @@ class AuthProvider {
                 }
 
                 const tokenResponse = await msalInstance.acquireTokenByCode(authCodeRequest, req.body);
+                console.log("acquireTokenByCode " + JSON.stringify(tokenResponse))
 
                 req.session.tokenCache = msalInstance.getTokenCache().serialize();
                 req.session.idToken = tokenResponse.idToken;
